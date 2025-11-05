@@ -17,7 +17,7 @@ See README.md for run instructions and requirements.
 import os
 import re
 import logging
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 
@@ -30,6 +30,7 @@ import gensim.corpora as corpora
 from gensim.models import CoherenceModel
 
 import spacy
+from spacy.lang.en.stop_words import STOP_WORDS
 
 try:
     # If pyLDAvis not installed, script still runs but won't save interactive view
@@ -87,7 +88,7 @@ def load_spacy_model():
     return nlp
 
 
-def preprocess_texts(texts: List[str], nlp, extra_stopwords: set = None) -> List[List[str]]:
+def preprocess_texts(texts: List[str], nlp, extra_stopwords: Optional[set] = None) -> List[List[str]]:
     """Preprocess a list of raw texts into token lists ready for topic modeling.
 
     Steps:
@@ -96,9 +97,10 @@ def preprocess_texts(texts: List[str], nlp, extra_stopwords: set = None) -> List
     - lemmatize
     - remove stopwords and short tokens / numbers
     """
+
     stop_words = set(stopwords.words('english'))
     # also include spaCy default stop words
-    stop_words |= set([w.lower() for w in spacy.lang.en.stop_words.STOP_WORDS])
+    stop_words |= set([w.lower() for w in STOP_WORDS])
     if extra_stopwords:
         stop_words |= set(extra_stopwords)
 
