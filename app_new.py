@@ -4,7 +4,6 @@ import streamlit as st
 # Page configuration must be the first Streamlit command
 st.set_page_config(
     page_title="Job Market Analysis",
-    page_icon="📊",
     layout="wide"
 )
 
@@ -59,37 +58,28 @@ def preprocess_text(text):
 
 def classify_job():
     st.title("Job Classification")
-    st.write("Analyze and classify job descriptions into market demand categories")
+    st.write("Analyze and classify job descriptions.")
     
-    # Check if NLTK data is available
+    
     if not nltk_ready:
-        st.error("NLTK data is not available. Classification may not work properly.")
+        st.error("NLTK data is not available.")
         return
     
     try:
-        # Load the classification model and components
+        #classification model and components
         model_path = 'models/job_classifier_model.joblib'
         vectorizer_path = 'models/tfidf_vectorizer.joblib'
         mappings_path = 'models/category_mappings.joblib'
         
-        if not all(os.path.exists(p) for p in [model_path, vectorizer_path, mappings_path]):
-            st.error("""
-            Some model files are missing. Please make sure you have the following files in the 'models' directory:
-            - job_classifier_model.joblib
-            - tfidf_vectorizer.joblib
-            - category_mappings.joblib
-            """)
-            return
         
         model = joblib.load(model_path)
         vectorizer = joblib.load(vectorizer_path)
         mappings = joblib.load(mappings_path)
         
-        # Text input for classification
         job_description = st.text_area(
             "Enter job description:",
             height=200,
-            placeholder="Paste job description here..."
+            placeholder="Job description here..."
         )
         
         if st.button("Classify"):
@@ -97,10 +87,8 @@ def classify_job():
                 st.warning("Please enter a job description.")
                 return
                 
-            # Show processing message
             with st.spinner("Analyzing job description..."):
                 try:
-                    # Preprocess the input text
                     processed_text = preprocess_text(job_description)
                     if not processed_text:
                         st.warning("No valid words found in the input after preprocessing.")
@@ -108,18 +96,18 @@ def classify_job():
                         
                     text_joined = ' '.join(processed_text)
                     
-                    # Transform the text using the vectorizer
+                    # transform the text using the vectorizer
                     X = vectorizer.transform([text_joined])
                     
-                    # Get the prediction and probability scores
+                    # prediction and probability scores
                     prediction = model.predict(X)[0]
                     probabilities = model.predict_proba(X)[0]
                     confidence = probabilities[prediction]
                     
-                    # Map the numerical prediction to category name
+                    # numerical prediction to category name
                     predicted_category = mappings['topic_to_category'][prediction]
                     
-                    # Display results in columns
+                    #  results in columns
                     col1, col2 = st.columns(2)
                     
                     with col1:
@@ -130,10 +118,9 @@ def classify_job():
                         st.info("**Confidence Score:**")
                         st.write(f"### {confidence:.1%}")
                     
-                    # Add confidence meter
+                    # confidence meter
                     st.progress(confidence)
                     
-                    # Show detailed probability distribution
                     st.subheader("Probability Distribution")
                     prob_df = pd.DataFrame({
                         'Category': [mappings['topic_to_category'][i] for i in range(len(probabilities))],
@@ -146,20 +133,16 @@ def classify_job():
                         y='Probability',
                         title='Confidence Scores by Category'
                     )
-                    fig.update_layout(
-                        xaxis_tickangle=-45,
-                        showlegend=False,
-                        height=400
-                    )
+                
                     st.plotly_chart(fig, use_container_width=True)
                     
                 except Exception as e:
                     st.error(f"Error during classification: {str(e)}")
     
     except Exception as e:
-        st.error(f"Error loading model components: {str(e)}")
+        st.error(f"Error: {str(e)}")
         if "Permission denied" in str(e):
-            st.info("Tip: Make sure you have read permissions for the model files.")
+            st.info("")
 
 def topic_modeling_page():
     st.title("LDA Topic Explorer")
@@ -176,7 +159,7 @@ def topic_modeling_page():
             df = pd.read_csv(default_path)
             st.sidebar.write(f"Loaded {default_path}")
         else:
-            st.warning("No CSV found. Upload a CSV or place linkedin_scraped_job_details_1600.csv in this folder.")
+            st.warning("No CSV found.")
             df = pd.DataFrame(columns=["url", "title", "company", "location", "description"])
 
     st.sidebar.markdown("---")

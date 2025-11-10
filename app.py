@@ -1,9 +1,23 @@
 import os
 import streamlit as st
 import pandas as pd
+import numpy as np
 import streamlit.components.v1 as components
+from sklearn.feature_extraction.text import TfidfVectorizer
+import joblib
 
-st.set_page_config(page_title="LDA Topic Explorer", layout="wide")
+st.set_page_config(
+    page_title="Job Market Analysis", 
+    page_icon="📊",
+    layout="wide"
+)
+
+# Sidebar for navigation
+st.sidebar.title("Navigation")
+page = st.sidebar.radio(
+    "Go to",
+    ["Topic Modeling", "Job Classification"]
+)
 
 st.title("LDA Topic Explorer (Python / Streamlit)")
 
