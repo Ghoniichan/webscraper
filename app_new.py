@@ -279,8 +279,3 @@ else:
 
 # Footer
 st.sidebar.markdown("---")
-st.sidebar.markdown("### About")
-st.sidebar.info(
-    "This application provides tools for analyzing job descriptions "
-    "using topic modeling and classification techniques."
-)
