@@ -58,109 +58,132 @@ def preprocess_text(text):
 
 def classify_job():
     st.title("Job Classification")
-    st.write("Analyze and classify job descriptions.")
-    
-    
+    st.write("Analyze and classify job descriptions or uploaded resumes.")
+
     if not nltk_ready:
         st.error("NLTK data is not available.")
         return
-    
+
     try:
-        #classification model and components
+        # Load classification components
         model_path = 'models/job_classifier_model.joblib'
         vectorizer_path = 'models/tfidf_vectorizer.joblib'
         mappings_path = 'models/category_mappings.joblib'
-        
-        
+
         model = joblib.load(model_path)
         vectorizer = joblib.load(vectorizer_path)
         mappings = joblib.load(mappings_path)
-        
-        job_description = st.text_area(
-            "Enter job description:",
-            height=200,
-            placeholder="Job description here..."
+
+        # Manual topic labels
+        topic_label_map = {
+            0: "Business Operations & Service Management",
+            1: "Software and Web Development",
+            2: "AI-assisted Hiring & Workforce Management",
+            3: "Digital Business & Customer Engagement",
+            4: "Data Annalytics & Data-Driven Decision Making",
+            5: "Software Engineering & System Development",
+        }
+
+        st.subheader("Input Options")
+        input_method = st.radio(
+            "Choose input type:",
+            ("Type job description", "Upload resume (PDF)"),
+            horizontal=True
         )
-        
+
+        job_description = ""
+
+        if input_method == "Type job description":
+            job_description = st.text_area(
+                "Enter job description:",
+                height=200,
+                placeholder="Paste or type the job description here..."
+            )
+
+        else:
+            uploaded_file = st.file_uploader("Upload a resume in PDF format", type=["pdf"])
+            if uploaded_file is not None:
+                try:
+                    import fitz  # PyMuPDF
+                    with fitz.open(stream=uploaded_file.read(), filetype="pdf") as pdf_doc:
+                        text_content = ""
+                        for page in pdf_doc:
+                            text_content += page.get_text()
+                    job_description = text_content.strip()
+
+                    if job_description:
+                        st.success("Resume text extracted successfully.")
+                        with st.expander("View extracted text"):
+                            st.text_area("Extracted Resume Content", job_description, height=200)
+                    else:
+                        st.warning("No text could be extracted from the PDF.")
+                except Exception as e:
+                    st.error(f"Error reading PDF: {str(e)}")
+
         if st.button("Classify"):
             if not job_description or job_description.isspace():
-                st.warning("Please enter a job description.")
+                st.warning("Please provide a job description or upload a valid PDF.")
                 return
-                
-            with st.spinner("Analyzing job description..."):
+
+            with st.spinner("Analyzing..."):
                 try:
                     processed_text = preprocess_text(job_description)
                     if not processed_text:
                         st.warning("No valid words found in the input after preprocessing.")
                         return
-                        
+
                     text_joined = ' '.join(processed_text)
-                    
-                    # transform the text using the vectorizer
                     X = vectorizer.transform([text_joined])
-                    
-                    # prediction and probability scores
+
                     prediction = model.predict(X)[0]
                     probabilities = model.predict_proba(X)[0]
                     confidence = probabilities[prediction]
-                    
-                    # numerical prediction to category name
-                    predicted_category = mappings['topic_to_category'][prediction]
-                    
-                    #  results in columns
+
+                    # Use manual labels
+                    predicted_category = topic_label_map.get(prediction, f"Topic_{prediction}")
+
                     col1, col2 = st.columns(2)
-                    
                     with col1:
                         st.info("**Predicted Category:**")
                         st.write(f"### {predicted_category}")
-                    
                     with col2:
                         st.info("**Confidence Score:**")
                         st.write(f"### {confidence:.1%}")
-                    
-                    # confidence meter
+
                     st.progress(confidence)
-                    
+
                     st.subheader("Probability Distribution")
                     prob_df = pd.DataFrame({
-                        'Category': [mappings['topic_to_category'][i] for i in range(len(probabilities))],
+                        'Category': [topic_label_map.get(i, f"Topic_{i}") for i in range(len(probabilities))],
                         'Probability': probabilities
                     }).sort_values('Probability', ascending=False)
-                    
+
                     fig = px.bar(
                         prob_df,
                         x='Category',
                         y='Probability',
                         title='Confidence Scores by Category'
                     )
-                
                     st.plotly_chart(fig, use_container_width=True)
-                    
+
                 except Exception as e:
                     st.error(f"Error during classification: {str(e)}")
-    
+
     except Exception as e:
         st.error(f"Error: {str(e)}")
-        if "Permission denied" in str(e):
-            st.info("")
 
 def topic_modeling_page():
     st.title("LDA Topic Explorer")
     st.write("Analyze job descriptions using LDA Topic Modeling")
 
-    # File upload
-    uploaded = st.sidebar.file_uploader("Upload job CSV (optional)", type=["csv"])
-    if uploaded is not None:
-        df = pd.read_csv(uploaded)
-        st.sidebar.success("Loaded uploaded CSV")
+    # Use default CSV only
+    default_path = "linkedin_scraped_job_details_1600.csv"
+    if os.path.exists(default_path):
+        df = pd.read_csv(default_path)
+        st.sidebar.write(f"Loaded {default_path}")
     else:
-        default_path = "linkedin_scraped_job_details_1600.csv"
-        if os.path.exists(default_path):
-            df = pd.read_csv(default_path)
-            st.sidebar.write(f"Loaded {default_path}")
-        else:
-            st.warning("No CSV found.")
-            df = pd.DataFrame(columns=["url", "title", "company", "location", "description"])
+        st.warning("No CSV found.")
+        df = pd.DataFrame(columns=["url", "title", "company", "location", "description"])
 
     st.sidebar.markdown("---")
     st.sidebar.write(f"Rows in dataset: {len(df)}")
@@ -177,15 +200,9 @@ def topic_modeling_page():
         if st.button("Run LDA Analysis", key="run_lda"):
             with st.spinner("Training LDA model... This may take a few minutes."):
                 try:
-                    # Save uploaded file if necessary
-                    csv_path = default_path
-                    if uploaded is not None:
-                        csv_path = "uploaded_jobs.csv"
-                        df.to_csv(csv_path, index=False)
-                    
                     # Run LDA (do not rely on pyLDAvis html embed)
                     lda_model, corpus, id2word = lda_analysis.run_lda(
-                        csv_path,
+                        default_path,
                         num_topics=num_topics,
                         passes=passes,
                         save_vis=False
@@ -222,10 +239,6 @@ def topic_modeling_page():
                     
                 except Exception as e:
                     st.error(f"Error during LDA analysis: {str(e)}")
-                finally:
-                    # Cleanup if needed
-                    if uploaded is not None and os.path.exists("uploaded_jobs.csv"):
-                        os.remove("uploaded_jobs.csv")
 
     with col2:
         st.header("Topic Overview & Controls")
